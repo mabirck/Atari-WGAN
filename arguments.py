@@ -8,7 +8,7 @@ def get_args():
                             help='Batch Size to be used')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('z_size', default=100)
+    parser.add_argument('--z_size', default=100)
     parser.add_argument('--env_names',
                         default=('Breakout-v0', 'AirRaid-v0', 'Pong-v0'))
     parser.add_argument('--lr',
@@ -27,6 +27,8 @@ def get_args():
     parser.add_argument('--save_dir', default='data')
     parser.add_argument('--image_to_generate', default=10000)
     parser.add_argument('--max_images_per_env_instance', default=5)
+    parser.add_argument("--restore", type=str,
+                        help="Restore already existing model from the path provided")
 
     args = parser.parse_args()
 

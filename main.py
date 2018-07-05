@@ -1,4 +1,3 @@
-
 from arguments import get_args
 import os
 import random
@@ -21,6 +20,7 @@ log.set_level(gym.logger.INFO)
 
 args = get_args()
 
+
 def iterate_batches(envs, batch_size=args.batch_size):
     batch = [e.reset() for e in envs]
     env_gen = iter(lambda: random.choice(envs), None)
@@ -38,7 +38,7 @@ def iterate_batches(envs, batch_size=args.batch_size):
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda" if args.gpu else "cpu")
+    device = torch.device("cpu" if args.no_cuda else "cuda")
     envs = [InputTransformation(gym.make(name)) for name in args.env_names]
     input_shape = envs[0].observation_space.shape
 
