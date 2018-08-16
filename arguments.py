@@ -29,6 +29,11 @@ def get_args():
     parser.add_argument('--max_images_per_env_instance', default=5)
     parser.add_argument("--restore", type=str,
                         help="Restore already existing model from the path provided")
+    parser.add_argument('--gen_iter', default=1)
+    parser.add_argument('--dist_iter', default=5, type=int)
+    parser.add_argument('--start_iter', default=0, type=int)
+    parser.add_argument('--end_iter', default=int(10e4), type=int)
+
 
     args = parser.parse_args()
 
