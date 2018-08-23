@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from tensorboardX import SummaryWriter
 import torchvision.utils as vutils
+import tools
 
 from models import WGAN
 from wrappers import InputTransformation
@@ -17,7 +18,6 @@ DEFAULT_MODEL_NAME = 'model_{}.save'
 log = gym.logger
 log.set_level(gym.logger.INFO)
 
-clamp_num=0.01# WGAN clip gradient
 lamda=10.
 
 args = get_args()
@@ -63,16 +63,21 @@ if __name__ == "__main__":
                     image_channel_size=args.channel_size,
                     c_channel_size=args.disc_filters,
                     g_channel_size=args.gener_filters)
+        tools.gaussian_intiailize(wgan, 0.02)
 
     # objective = torch.nn.BCELoss()
-    gen_optimizer = torch.optim.Adam(params=wgan.critic.parameters(),
-                                     lr=args.lr#,
-                                     #betas=(0.5, 0.999)
+    gen_optimizer = torch.optim.Adam(params=wgan.generator.parameters(),
+                                     lr=args.lr,
+                                     betas=(0.5, 0.999)
                                      )
-    critic_optimizer = torch.optim.RMSprop(params=wgan.generator.parameters(),
-                                     lr=args.lr#,
-                                     #betas=(0.5, 0.999)
+    critic_optimizer = torch.optim.Adam(params=wgan.critic.parameters(),
+                                     lr=args.lr,
+                                     betas=(0.5, 0.999)
                                      )
+
+    # prepare the model and statistics.
+    wgan.train()
+
     writer = SummaryWriter()
 
     gen_losses = []

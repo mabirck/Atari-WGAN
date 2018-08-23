@@ -15,7 +15,7 @@ def get_args():
     parser.add_argument('--lr',
                         default=0.0001)
     parser.add_argument('--log_iter',
-                        default=100)
+                        default=10)
     parser.add_argument('--save_image_iter',
                         default=10)
     parser.add_argument('--save_model_iter',
