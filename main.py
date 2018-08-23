@@ -76,7 +76,7 @@ if __name__ == "__main__":
     writer = SummaryWriter()
 
     gen_losses = []
-    dis_losses = []
+    c_losses = []
     iter_no = 0
 
     true_labels_v = torch.ones(args.batch_size, dtype=torch.float32, device=device)
@@ -91,24 +91,19 @@ if __name__ == "__main__":
 
             x = next(batches_generator)
 
-            for parm in wgan.critic.parameters():
-                parm.data.clamp_(clamp_num, clamp_num)
-
             # train generator
             critic_optimizer.zero_grad()
             z = wgan.sample_noise(args.batch_size)
-
             c_loss, g = wgan.c_loss(x, z, return_g=True)
             c_loss_gp = c_loss + wgan.gradient_penalty(x, g, lamda=lamda)
+            # print(c_loss_gp)
+            c_losses.append(c_loss_gp.item())
             c_loss_gp.backward()
             critic_optimizer.step()
 
         for i in range(args.gen_iter):
 
             batch_v = next(batches_generator)
-
-            for parm in wgan.critic.parameters():
-                parm.data.clamp_(clamp_num, clamp_num)
 
             # generate extra fake samples, input is 4D: (batch, filters, x, y)
             z = wgan.sample_noise(args.batch_size)
@@ -119,17 +114,19 @@ if __name__ == "__main__":
             gen_optimizer.zero_grad()
             z = wgan.sample_noise(args.batch_size)
             g_loss = wgan.g_loss(z)
+            # print(g_loss)
+            gen_losses.append(g_loss.item())
             g_loss.backward()
             gen_optimizer.step()
 
         if iter_no % args.log_iter == 0:
             log.info("Iter %d: gen_loss=%.3e, dis_loss=%.3e",
                      iter_no, np.mean(gen_losses),
-                     np.mean(dis_losses))
+                     np.mean(c_losses))
             writer.add_scalar("gen_loss", np.mean(gen_losses), iter_no)
-            writer.add_scalar("dis_loss", np.mean(dis_losses), iter_no)
+            writer.add_scalar("c_loss", np.mean(c_losses), iter_no)
             gen_losses = []
-            dis_losses = []
+            c_losses = []
         if iter_no % args.save_image_iter == 0:
             writer.add_image("fake",
                              vutils.make_grid(gen_output_v.data[:64]),
