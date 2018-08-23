@@ -8,11 +8,8 @@ import torch
 from tensorboardX import SummaryWriter
 import torchvision.utils as vutils
 
-from models import Discriminator, Generator
+from models import WGAN
 from wrappers import InputTransformation
-
-
-from gan_tools import calc_gradient_penalty
 
 MODEL_DIR = 'model'
 DEFAULT_MODEL_NAME = 'model_{}.save'
@@ -21,6 +18,7 @@ log = gym.logger
 log.set_level(gym.logger.INFO)
 
 clamp_num=0.01# WGAN clip gradient
+lamda=10.
 
 args = get_args()
 
@@ -58,15 +56,20 @@ if __name__ == "__main__":
             os.path.join(args.restore,
                          DEFAULT_MODEL_NAME.format("discriminator")))
     else:
-        net_discr = Discriminator(input_shape=input_shape).to(device)
-        net_gener = Generator(output_shape=input_shape).to(device)
+        # net_discr = Discriminator(input_shape=input_shape).to(device)
+        # net_gener = Generator(output_shape=input_shape).to(device)
+        wgan = WGAN(label=args.dataset, z_size=args.z_size,
+                    image_size=args.image_size,
+                    image_channel_size=args.channel_size,
+                    c_channel_size=args.disc_filters,
+                    g_channel_size=args.gener_filters)
 
-    objective = torch.nn.BCELoss()
-    gen_optimizer = torch.optim.Adam(params=net_gener.parameters(),
+    # objective = torch.nn.BCELoss()
+    gen_optimizer = torch.optim.Adam(params=wgan.critic.parameters(),
                                      lr=args.lr#,
                                      #betas=(0.5, 0.999)
                                      )
-    dis_optimizer = torch.optim.RMSprop(params=net_discr.parameters(),
+    critic_optimizer = torch.optim.RMSprop(params=wgan.generator.parameters(),
                                      lr=args.lr#,
                                      #betas=(0.5, 0.999)
                                      )
@@ -84,59 +87,40 @@ if __name__ == "__main__":
     for iter_no in range(START_ITER, END_ITER):
         print("Iter: " + str(iter_no))
 
+        for i in range(args.disc_iter):
+
+            x = next(batches_generator)
+
+            for parm in wgan.critic.parameters():
+                parm.data.clamp_(clamp_num, clamp_num)
+
+            # train generator
+            critic_optimizer.zero_grad()
+            z = wgan.sample_noise(args.batch_size)
+
+            c_loss, g = wgan.c_loss(x, z, return_g=True)
+            c_loss_gp = c_loss + wgan.gradient_penalty(x, g, lamda=lamda)
+            c_loss_gp.backward()
+            critic_optimizer.step()
+
         for i in range(args.gen_iter):
-            print("Generator iters: " + str(i))
-            for parm in net_discr.parameters():
+
+            batch_v = next(batches_generator)
+
+            for parm in wgan.critic.parameters():
                 parm.data.clamp_(clamp_num, clamp_num)
 
             # generate extra fake samples, input is 4D: (batch, filters, x, y)
-            batch_v = next(batches_generator)
-            gen_input_v = torch.FloatTensor(args.batch_size, args.z_size, 1, 1)
-            gen_input_v = gen_input_v.normal_(0, 1).to(device)
+            z = wgan.sample_noise(args.batch_size)
             batch_v = batch_v.to(device)
-            gen_output_v = net_gener(gen_input_v)
-
-            # train generator
-            gen_optimizer.zero_grad()
-            dis_output_v = net_discr(gen_output_v)
-            gen_loss_v = objective(dis_output_v, true_labels_v)
-            gen_loss_v.backward()
-            gen_optimizer.step()
-            gen_losses.append(gen_loss_v.item())
-
-        for i in range(args.dis_iter):
-            print("Critic iter: " + str(i))
-            batch_v = next(batches_generator)
-
-            # generate extra fake samples, input is 4D: (batch, filters, x, y)
-            gen_input_v = torch.FloatTensor(args.batch_size, args.z_size, 1, 1)
-            gen_input_v = gen_input_v.normal_(0, 1).to(device)
-            batch_v = batch_v.to(device)
-            gen_output_v = net_gener(gen_input_v)
+            gen_output_v = wgan.generator(z)
 
             # train discriminator
-            dis_optimizer.zero_grad()
-            dis_output_true_v = net_discr(batch_v)
-            dis_output_fake_v = net_discr(gen_output_v.detach())
-            #dis_loss = objective(dis_output_true_v, true_labels_v) + \
-            #    objective(dis_output_fake_v, fake_labels_v)
-
-            # Gradient Penalty #
-            real_data = batch_v
-            fake_data = gen_output_v.detach()
-
-            gradient_penalty = calc_gradient_penalty(net_discr, real_data, fake_data)
-
-
-            disc_fake = dis_output_fake_v.mean()
-            disc_real = dis_output_true_v.mean()
-
-            dis_loss = disc_fake - disc_real + gradient_penalty
-
-
-            dis_loss.backward()
-            dis_optimizer.step()
-            dis_losses.append(dis_loss.item())
+            gen_optimizer.zero_grad()
+            z = wgan.sample_noise(args.batch_size)
+            g_loss = wgan.g_loss(z)
+            g_loss.backward()
+            gen_optimizer.step()
 
         if iter_no % args.log_iter == 0:
             log.info("Iter %d: gen_loss=%.3e, dis_loss=%.3e",
@@ -157,10 +141,6 @@ if __name__ == "__main__":
             if not os.path.exists(MODEL_DIR):
                 os.makedirs(MODEL_DIR)
 
-            torch.save(net_gener,
+            torch.save(wgan,
                        os.path.join(MODEL_DIR,
-                                    DEFAULT_MODEL_NAME.format("generator")))
-            torch.save(
-                net_gener,
-                os.path.join(MODEL_DIR,
-                DEFAULT_MODEL_NAME.format("discriminator")))
+                                    DEFAULT_MODEL_NAME.format("wgan")))

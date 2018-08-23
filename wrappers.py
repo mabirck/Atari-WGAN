@@ -2,7 +2,7 @@ import cv2
 import gym
 import numpy as np
 
-IMAGE_SIZE = (64, 64)
+IMAGE_SIZE = (32, 32)
 
 
 class InputTransformation(gym.ObservationWrapper):
