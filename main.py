@@ -65,6 +65,7 @@ if __name__ == "__main__":
                     g_channel_size=args.gener_filters)
         tools.gaussian_intiailize(wgan, 0.02)
 
+
     # objective = torch.nn.BCELoss()
     gen_optimizer = torch.optim.Adam(params=wgan.generator.parameters(),
                                      lr=args.lr,
